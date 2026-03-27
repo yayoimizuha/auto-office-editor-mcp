@@ -33,6 +33,8 @@ import json
 import pandas as pd
 import pytest
 
+from tests.utils import OLE_BLUE, OLE_RED, OLE_YELLOW
+
 pytestmark = pytest.mark.integration
 
 PRES_NAME = "test.pptx"
@@ -55,19 +57,6 @@ TABLE_ROW2 = ["大阪", "980000", "105%"]
 SLIDE1_SHAPE_COUNT = 2
 SLIDE2_SHAPE_COUNT = 2
 SLIDE3_SHAPE_COUNT = 2
-
-
-# 色定数（OLE BGR 順）
-def ole_yellow():
-    return 255 + (255 * 256) + (0 * 65536)
-
-
-def ole_red():
-    return 255 + (0 * 256) + (0 * 65536)
-
-
-def ole_blue():
-    return 0 + (0 * 256) + (255 * 65536)
 
 
 def _pres_name(dst) -> str:
@@ -562,10 +551,10 @@ class TestEditExistingShape:
 
         def _do():
             slide3 = _slide(mgr, dst, 3)
-            slide3.Shapes(SAMPLE_RECT_NAME).Fill.ForeColor.RGB = ole_yellow()
+            slide3.Shapes(SAMPLE_RECT_NAME).Fill.ForeColor.RGB = OLE_YELLOW
             return slide3.Shapes(SAMPLE_RECT_NAME).Fill.ForeColor.RGB
 
-        assert mgr.run_in_sta(_do) == ole_yellow()
+        assert mgr.run_in_sta(_do) == OLE_YELLOW
 
     def test_fill_color_red(self, ppt_editable):
         """SampleRect の塗りつぶし色を赤に設定できる"""
@@ -573,10 +562,10 @@ class TestEditExistingShape:
 
         def _do():
             slide3 = _slide(mgr, dst, 3)
-            slide3.Shapes(SAMPLE_RECT_NAME).Fill.ForeColor.RGB = ole_red()
+            slide3.Shapes(SAMPLE_RECT_NAME).Fill.ForeColor.RGB = OLE_RED
             return slide3.Shapes(SAMPLE_RECT_NAME).Fill.ForeColor.RGB
 
-        assert mgr.run_in_sta(_do) == ole_red()
+        assert mgr.run_in_sta(_do) == OLE_RED
 
     def test_fill_color_blue(self, ppt_editable):
         """SampleRect の塗りつぶし色を青に設定できる"""
@@ -584,10 +573,10 @@ class TestEditExistingShape:
 
         def _do():
             slide3 = _slide(mgr, dst, 3)
-            slide3.Shapes(SAMPLE_RECT_NAME).Fill.ForeColor.RGB = ole_blue()
+            slide3.Shapes(SAMPLE_RECT_NAME).Fill.ForeColor.RGB = OLE_BLUE
             return slide3.Shapes(SAMPLE_RECT_NAME).Fill.ForeColor.RGB
 
-        assert mgr.run_in_sta(_do) == ole_blue()
+        assert mgr.run_in_sta(_do) == OLE_BLUE
 
     def test_move_shape(self, ppt_editable):
         """SampleRect の位置を変更できる"""
@@ -633,10 +622,10 @@ class TestEditExistingShape:
 
         def _do():
             slide3 = _slide(mgr, dst, 3)
-            slide3.Shapes(SAMPLE_RECT_NAME).Line.ForeColor.RGB = ole_red()
+            slide3.Shapes(SAMPLE_RECT_NAME).Line.ForeColor.RGB = OLE_RED
             return slide3.Shapes(SAMPLE_RECT_NAME).Line.ForeColor.RGB
 
-        assert mgr.run_in_sta(_do) == ole_red()
+        assert mgr.run_in_sta(_do) == OLE_RED
 
     def test_set_text(self, ppt_editable):
         """SampleRect にテキストを設定できる"""
@@ -754,7 +743,7 @@ class TestExecuteOfficeScriptPowerPoint:
             "print(shp.Fill.ForeColor.RGB)"
         )
         result = execute_script(code)
-        assert str(ole_yellow()) in result
+        assert str(OLE_YELLOW) in result
 
     def test_shape_position_via_script(self, ppt_editable):
         """execute_script で図形の位置を変更できる"""
@@ -831,8 +820,8 @@ class TestCompositeEditPowerPoint:
         result = execute_script(code)
 
         assert str(count_before + 1) in result
-        assert str(ole_yellow()) in result
-        assert str(ole_blue()) in result
+        assert str(OLE_YELLOW) in result
+        assert str(OLE_BLUE) in result
         assert "楕円" in result
 
     def test_add_table_to_new_slide_via_script(self, ppt_editable):

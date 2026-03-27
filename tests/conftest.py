@@ -18,10 +18,8 @@ EXCEL_PATH = FIXTURES_DIR / "test.xlsx"
 WORD_PATH = FIXTURES_DIR / "test.docx"
 PPT_PATH = FIXTURES_DIR / "test.pptx"
 
-# 編集テスト用コピーファイルの保存先ディレクトリ（Word/PPT も同じ editable/ を使う）
-EXCEL_EDITABLE_DIR = FIXTURES_DIR / "editable"
-WORD_EDITABLE_DIR = FIXTURES_DIR / "editable"
-PPT_EDITABLE_DIR = FIXTURES_DIR / "editable"
+# 編集テスト用コピーファイルの保存先ディレクトリ
+EDITABLE_DIR = FIXTURES_DIR / "editable"
 
 
 @pytest.fixture(scope="session")
@@ -71,51 +69,6 @@ def xl_open(app_manager):
 
 
 @pytest.fixture(scope="function")
-def xl_editable(request, app_manager):
-    """
-    test.xlsx を fixtures/editable/<クラス名>_<テスト名>.xlsx にコピーして開く。
-
-    - function スコープ: 各テストが独立したファイルを持つ
-    - テスト後に保存して閉じる → 各テストの編集結果を個別に目視確認できる
-    - 次回実行時に同名ファイルがあれば上書きコピーしてクリーンな状態から開始
-
-    ファイル名規則:
-        fixtures/editable/<クラス名>_<テスト名>.xlsx
-        例: fixtures/editable/TestAddSmileyFace_test_smiley_name.xlsx
-
-    Yields:
-        (AppManager, Path): app_manager と編集ファイルのパス
-    """
-    # 保存先ディレクトリを作成
-    EXCEL_EDITABLE_DIR.mkdir(exist_ok=True)
-
-    # テスト名からファイル名を生成
-    node = request.node
-    class_name = node.cls.__name__ if node.cls else "NoClass"
-    test_name = node.originalname  # パラメータなしのテスト関数名
-    filename = f"{class_name}_{test_name}.xlsx"
-    dst = EXCEL_EDITABLE_DIR / filename
-
-    # 前回残ったファイルが Excel で開いていれば保存せずに閉じる
-    try:
-        app_manager.close_file(str(dst), save=False)
-    except Exception:
-        pass
-
-    # test.xlsx を上書きコピー（クリーンな状態から開始）
-    shutil.copy(EXCEL_PATH, dst)
-
-    app_manager.open_file(str(dst))
-    yield app_manager, dst
-
-    # テスト後は保存して閉じる（ファイルは fixtures/editable/ に残す → 目視確認用）
-    try:
-        app_manager.close_file(str(dst), save=True)
-    except Exception:
-        pass
-
-
-@pytest.fixture(scope="function")
 def wd_open(app_manager):
     """
     test.docx を開き、テスト終了後に保存せず閉じる。
@@ -125,41 +78,6 @@ def wd_open(app_manager):
     yield app_manager
     try:
         app_manager.close_file(str(WORD_PATH), save=False)
-    except Exception:
-        pass
-
-
-@pytest.fixture(scope="function")
-def wd_editable(request, app_manager):
-    """
-    test.docx を fixtures/editable/<クラス名>_<テスト名>.docx にコピーして開く。
-
-    - function スコープ: 各テストが独立したファイルを持つ
-    - テスト後に保存して閉じる → 各テストの編集結果を個別に目視確認できる
-    - 次回実行時に同名ファイルがあれば上書きコピーしてクリーンな状態から開始
-
-    Yields:
-        (AppManager, Path): app_manager と編集ファイルのパス
-    """
-    WORD_EDITABLE_DIR.mkdir(exist_ok=True)
-
-    node = request.node
-    class_name = node.cls.__name__ if node.cls else "NoClass"
-    test_name = node.originalname
-    filename = f"{class_name}_{test_name}.docx"
-    dst = WORD_EDITABLE_DIR / filename
-
-    try:
-        app_manager.close_file(str(dst), save=False)
-    except Exception:
-        pass
-
-    shutil.copy(WORD_PATH, dst)
-    app_manager.open_file(str(dst))
-    yield app_manager, dst
-
-    try:
-        app_manager.close_file(str(dst), save=True)
     except Exception:
         pass
 
@@ -178,36 +96,54 @@ def ppt_open(app_manager):
         pass
 
 
-@pytest.fixture(scope="function")
-def ppt_editable(request, app_manager):
+def _make_editable_fixture(src_path: Path, ext: str):
     """
-    test.pptx を fixtures/editable/<クラス名>_<テスト名>.pptx にコピーして開く。
+    編集テスト用フィクスチャを生成するファクトリ関数。
+
+    src_path のファイルを EDITABLE_DIR/<クラス名>_<テスト名><ext> にコピーして開く。
 
     - function スコープ: 各テストが独立したファイルを持つ
     - テスト後に保存して閉じる → 各テストの編集結果を個別に目視確認できる
     - 次回実行時に同名ファイルがあれば上書きコピーしてクリーンな状態から開始
 
+    ファイル名規則:
+        fixtures/editable/<クラス名>_<テスト名><ext>
+        例: fixtures/editable/TestAddSmileyFace_test_smiley_name.xlsx
+
     Yields:
         (AppManager, Path): app_manager と編集ファイルのパス
     """
-    PPT_EDITABLE_DIR.mkdir(exist_ok=True)
 
-    node = request.node
-    class_name = node.cls.__name__ if node.cls else "NoClass"
-    test_name = node.originalname
-    filename = f"{class_name}_{test_name}.pptx"
-    dst = PPT_EDITABLE_DIR / filename
+    @pytest.fixture(scope="function")
+    def _fixture(request, app_manager):
+        EDITABLE_DIR.mkdir(exist_ok=True)
 
-    try:
-        app_manager.close_file(str(dst), save=False)
-    except Exception:
-        pass
+        node = request.node
+        class_name = node.cls.__name__ if node.cls else "NoClass"
+        test_name = node.originalname  # パラメータなしのテスト関数名
+        filename = f"{class_name}_{test_name}{ext}"
+        dst = EDITABLE_DIR / filename
 
-    shutil.copy(PPT_PATH, dst)
-    app_manager.open_file(str(dst))
-    yield app_manager, dst
+        # 前回残ったファイルが開いていれば保存せずに閉じる
+        try:
+            app_manager.close_file(str(dst), save=False)
+        except Exception:
+            pass
 
-    try:
-        app_manager.close_file(str(dst), save=True)
-    except Exception:
-        pass
+        # src_path を上書きコピー（クリーンな状態から開始）
+        shutil.copy(src_path, dst)
+        app_manager.open_file(str(dst))
+        yield app_manager, dst
+
+        # テスト後は保存して閉じる（ファイルは fixtures/editable/ に残す → 目視確認用）
+        try:
+            app_manager.close_file(str(dst), save=True)
+        except Exception:
+            pass
+
+    return _fixture
+
+
+xl_editable = _make_editable_fixture(EXCEL_PATH, ".xlsx")
+wd_editable = _make_editable_fixture(WORD_PATH, ".docx")
+ppt_editable = _make_editable_fixture(PPT_PATH, ".pptx")

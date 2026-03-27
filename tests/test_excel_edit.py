@@ -32,6 +32,8 @@ from __future__ import annotations
 
 import pytest
 
+from tests.utils import OLE_BLACK, OLE_BLUE, OLE_RED, OLE_YELLOW
+
 pytestmark = pytest.mark.integration
 
 SHEET3_NAME = "Sheet3"
@@ -48,23 +50,6 @@ CHART_BOTTOM = CHART_TOP + CHART_HEIGHT  # 519.0pt
 
 # SmileyFace の AutoShapeType 定数
 MSO_SHAPE_SMILEY_FACE = 98
-
-
-# よく使う色（OLE カラー）
-def ole_yellow():
-    return 255 + (255 * 256) + (0 * 65536)  # rgb(255,255,0)
-
-
-def ole_red():
-    return 255 + (0 * 256) + (0 * 65536)  # rgb(255,0,0)
-
-
-def ole_blue():
-    return 0 + (0 * 256) + (255 * 65536)  # rgb(0,0,255)
-
-
-def ole_black():
-    return 0
 
 
 def _wb_name(dst) -> str:
@@ -219,10 +204,10 @@ class TestSmileyFaceColor:
         def _do():
             ws = _ws3(mgr, dst)
             shp = _add_smiley(ws)
-            shp.Fill.ForeColor.RGB = ole_yellow()
+            shp.Fill.ForeColor.RGB = OLE_YELLOW
             return ws.Shapes(shp.Name).Fill.ForeColor.RGB
 
-        assert mgr.run_in_sta(_do) == ole_yellow()
+        assert mgr.run_in_sta(_do) == OLE_YELLOW
 
     def test_fill_color_red(self, xl_editable):
         """Fill.ForeColor.RGB を赤に変更できる"""
@@ -231,11 +216,11 @@ class TestSmileyFaceColor:
         def _do():
             ws = _ws3(mgr, dst)
             shp = _add_smiley(ws)
-            shp.Fill.ForeColor.RGB = ole_yellow()
-            shp.Fill.ForeColor.RGB = ole_red()
+            shp.Fill.ForeColor.RGB = OLE_YELLOW
+            shp.Fill.ForeColor.RGB = OLE_RED
             return ws.Shapes(shp.Name).Fill.ForeColor.RGB
 
-        assert mgr.run_in_sta(_do) == ole_red()
+        assert mgr.run_in_sta(_do) == OLE_RED
 
     def test_fill_color_blue(self, xl_editable):
         """Fill.ForeColor.RGB を青に設定できる"""
@@ -244,10 +229,10 @@ class TestSmileyFaceColor:
         def _do():
             ws = _ws3(mgr, dst)
             shp = _add_smiley(ws)
-            shp.Fill.ForeColor.RGB = ole_blue()
+            shp.Fill.ForeColor.RGB = OLE_BLUE
             return ws.Shapes(shp.Name).Fill.ForeColor.RGB
 
-        assert mgr.run_in_sta(_do) == ole_blue()
+        assert mgr.run_in_sta(_do) == OLE_BLUE
 
     def test_fill_via_execute_script(self, xl_editable):
         """execute_office_script 経由で黄色に塗れる"""
@@ -265,7 +250,7 @@ class TestSmileyFaceColor:
             "print(shp.Fill.ForeColor.RGB)"
         )
         result = execute_script(code)
-        assert str(ole_yellow()) in result
+        assert str(OLE_YELLOW) in result
 
     def test_line_color_black(self, xl_editable):
         """Line.ForeColor.RGB を黒に設定できる"""
@@ -274,10 +259,10 @@ class TestSmileyFaceColor:
         def _do():
             ws = _ws3(mgr, dst)
             shp = _add_smiley(ws)
-            shp.Line.ForeColor.RGB = ole_black()
+            shp.Line.ForeColor.RGB = OLE_BLACK
             return ws.Shapes(shp.Name).Line.ForeColor.RGB
 
-        assert mgr.run_in_sta(_do) == ole_black()
+        assert mgr.run_in_sta(_do) == OLE_BLACK
 
     def test_line_color_red(self, xl_editable):
         """Line.ForeColor.RGB を赤に設定できる"""
@@ -286,10 +271,10 @@ class TestSmileyFaceColor:
         def _do():
             ws = _ws3(mgr, dst)
             shp = _add_smiley(ws)
-            shp.Line.ForeColor.RGB = ole_red()
+            shp.Line.ForeColor.RGB = OLE_RED
             return ws.Shapes(shp.Name).Line.ForeColor.RGB
 
-        assert mgr.run_in_sta(_do) == ole_red()
+        assert mgr.run_in_sta(_do) == OLE_RED
 
     def test_fill_invisible(self, xl_editable):
         """Fill.Visible = False で塗りつぶしを非表示にできる"""
@@ -561,10 +546,10 @@ class TestEditExistingStar:
 
         def _do():
             ws = _ws3(mgr, dst)
-            ws.Shapes(self.STAR_NAME).Fill.ForeColor.RGB = ole_yellow()
+            ws.Shapes(self.STAR_NAME).Fill.ForeColor.RGB = OLE_YELLOW
             return ws.Shapes(self.STAR_NAME).Fill.ForeColor.RGB
 
-        assert mgr.run_in_sta(_do) == ole_yellow()
+        assert mgr.run_in_sta(_do) == OLE_YELLOW
 
     def test_star_fill_color_blue(self, xl_editable):
         """星型図形の塗りつぶし色を青に変更できる"""
@@ -572,10 +557,10 @@ class TestEditExistingStar:
 
         def _do():
             ws = _ws3(mgr, dst)
-            ws.Shapes(self.STAR_NAME).Fill.ForeColor.RGB = ole_blue()
+            ws.Shapes(self.STAR_NAME).Fill.ForeColor.RGB = OLE_BLUE
             return ws.Shapes(self.STAR_NAME).Fill.ForeColor.RGB
 
-        assert mgr.run_in_sta(_do) == ole_blue()
+        assert mgr.run_in_sta(_do) == OLE_BLUE
 
     def test_star_move(self, xl_editable):
         """星型図形を移動できる"""
@@ -622,7 +607,7 @@ class TestEditExistingStar:
             "print(star.Fill.ForeColor.RGB, round(star.Left, 1))"
         )
         result = execute_script(code)
-        assert str(ole_yellow()) in result
+        assert str(OLE_YELLOW) in result
         assert str(round(cm_to_pt(2.0), 1)) in result
 
 
@@ -698,12 +683,12 @@ class TestCellFormatting:
         def _do():
             ws = _ws2(mgr, dst)
             _write_sample_data(ws)
-            ws.Range("A1:C1").Interior.Color = ole_yellow()
+            ws.Range("A1:C1").Interior.Color = OLE_YELLOW
             return ws.Range("A1").Interior.Color, ws.Range("C1").Interior.Color
 
         a1_color, c1_color = mgr.run_in_sta(_do)
-        assert a1_color == ole_yellow()
-        assert c1_color == ole_yellow()
+        assert a1_color == OLE_YELLOW
+        assert c1_color == OLE_YELLOW
 
     def test_cell_background_color_red(self, xl_editable):
         """データ行の背景色を赤に設定できる"""
@@ -712,12 +697,12 @@ class TestCellFormatting:
         def _do():
             ws = _ws2(mgr, dst)
             _write_sample_data(ws)
-            ws.Range("A2:C2").Interior.Color = ole_red()
+            ws.Range("A2:C2").Interior.Color = OLE_RED
             return ws.Range("A2").Interior.Color, ws.Range("C2").Interior.Color
 
         a2_color, c2_color = mgr.run_in_sta(_do)
-        assert a2_color == ole_red()
-        assert c2_color == ole_red()
+        assert a2_color == OLE_RED
+        assert c2_color == OLE_RED
 
     def test_cell_font_color(self, xl_editable):
         """見出し行のフォント色を青に設定できる"""
@@ -726,10 +711,10 @@ class TestCellFormatting:
         def _do():
             ws = _ws2(mgr, dst)
             _write_sample_data(ws)
-            ws.Range("A1:C1").Font.Color = ole_blue()
+            ws.Range("A1:C1").Font.Color = OLE_BLUE
             return ws.Range("A1").Font.Color
 
-        assert mgr.run_in_sta(_do) == ole_blue()
+        assert mgr.run_in_sta(_do) == OLE_BLUE
 
     def test_range_bold(self, xl_editable):
         """見出し行を Bold、データ行を通常のまま → 視覚的な差が明確"""
@@ -772,7 +757,7 @@ class TestCellFormatting:
             "print(ws.Range('A1').Font.Size)"
         )
         result = execute_script(code)
-        assert str(ole_yellow()) in result
+        assert str(OLE_YELLOW) in result
         assert "True" in result
         assert "14" in result
 
@@ -811,7 +796,7 @@ class TestCompositeEdit:
         result = execute_script(code)
 
         assert "HappyFace" in result
-        assert str(ole_yellow()) in result
+        assert str(OLE_YELLOW) in result
         assert "-0.5" in result
         assert str(ORIGINAL_SHAPE_COUNT + 1) in result
 
@@ -837,4 +822,4 @@ class TestCompositeEdit:
         result = execute_script(code)
 
         assert str(ORIGINAL_SHAPE_COUNT + 1) in result
-        assert str(ole_blue()) in result
+        assert str(OLE_BLUE) in result

@@ -10,9 +10,15 @@ LLM がコードを書く前に「今どこに何があるか」を把握する�
 from __future__ import annotations
 
 import json
+from typing import Callable, Any
 
 from ..app_manager import manager
 from ..helpers import pt_to_cm
+
+
+def _run_sta_as_json(func: Callable[[], Any]) -> str:
+    """func を STA スレッドで実行し、結果を JSON 文字列として返す。"""
+    return json.dumps(manager.run_in_sta(func), ensure_ascii=False)
 
 
 # ------------------------------------------------------------------
@@ -57,7 +63,7 @@ def get_xl_sheets_info(wb_name: str) -> str:
             )
         return sheets
 
-    return json.dumps(manager.run_in_sta(_impl), ensure_ascii=False)
+    return _run_sta_as_json(_impl)
 
 
 def get_xl_range_info(wb_name: str, sheet_name: str, range_address: str) -> str:
@@ -122,7 +128,7 @@ def get_xl_range_info(wb_name: str, sheet_name: str, range_address: str) -> str:
             else "",
         }
 
-    return json.dumps(manager.run_in_sta(_impl), ensure_ascii=False)
+    return _run_sta_as_json(_impl)
 
 
 # ------------------------------------------------------------------
@@ -172,7 +178,7 @@ def get_ppt_slides_info(pres_name: str) -> str:
             )
         return slides
 
-    return json.dumps(manager.run_in_sta(_impl), ensure_ascii=False)
+    return _run_sta_as_json(_impl)
 
 
 def get_ppt_shapes_info(pres_name: str, slide_index: int) -> str:
@@ -249,7 +255,7 @@ def get_ppt_shapes_info(pres_name: str, slide_index: int) -> str:
             )
         return shapes
 
-    return json.dumps(manager.run_in_sta(_impl), ensure_ascii=False)
+    return _run_sta_as_json(_impl)
 
 
 # ------------------------------------------------------------------
@@ -331,4 +337,4 @@ def get_wd_document_info(doc_name: str) -> str:
             "tables": tables,
         }
 
-    return json.dumps(manager.run_in_sta(_impl), ensure_ascii=False)
+    return _run_sta_as_json(_impl)

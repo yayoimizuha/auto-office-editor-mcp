@@ -188,30 +188,28 @@ class AppManager:
             return
 
         def _do_shutdown():
-            self._save_and_close_all(self.xl_app, "Excel")
-            self._save_and_close_all(self.wd_app, "Word")
-            self._save_and_close_all(self.ppt_app, "PowerPoint")
+            for attr, label in [
+                ("xl_app", "Excel"),
+                ("wd_app", "Word"),
+                ("ppt_app", "PowerPoint"),
+            ]:
+                app = getattr(self, attr)
+                self._save_and_close_all(app, label)
 
             # MCP 管理外のファイルが残っているアプリは Quit() しない
-            if not self._has_non_mcp_files(self.xl_app):
-                self._quit_app(self.xl_app, "Excel")
-                self.xl_app = None
-            else:
-                logger.info("AppManager: Excel has user-opened files; skipping Quit().")
-
-            if not self._has_non_mcp_files(self.wd_app):
-                self._quit_app(self.wd_app, "Word")
-                self.wd_app = None
-            else:
-                logger.info("AppManager: Word has user-opened files; skipping Quit().")
-
-            if not self._has_non_mcp_files(self.ppt_app):
-                self._quit_app(self.ppt_app, "PowerPoint")
-                self.ppt_app = None
-            else:
-                logger.info(
-                    "AppManager: PowerPoint has user-opened files; skipping Quit()."
-                )
+            for attr, label in [
+                ("xl_app", "Excel"),
+                ("wd_app", "Word"),
+                ("ppt_app", "PowerPoint"),
+            ]:
+                app = getattr(self, attr)
+                if not self._has_non_mcp_files(app):
+                    self._quit_app(app, label)
+                    setattr(self, attr, None)
+                else:
+                    logger.info(
+                        "AppManager: %s has user-opened files; skipping Quit().", label
+                    )
 
         self._worker.run(_do_shutdown)
         self._worker.stop()
@@ -390,46 +388,27 @@ class AppManager:
 
         self._get_app(app_name)  # 起動確認
 
+        obj = self._find_file_object(app_name, name)
+        if obj is None:
+            raise FileNotFoundError(f"開いていないファイルです: {name}")
+        full_name = obj.FullName.lower()
+        if full_name not in self._mcp_opened_files:
+            raise PermissionError(
+                f"'{name}' は MCP 経由で開いたファイルではないため閉じられません。"
+            )
+
         if app_name == "excel":
-            wb = self._find_workbook(name)
-            if wb is None:
-                raise FileNotFoundError(f"開いていないファイルです: {name}")
-            full_name = wb.FullName.lower()
-            if full_name not in self._mcp_opened_files:
-                raise PermissionError(
-                    f"'{name}' は MCP 経由で開いたファイルではないため閉じられません。"
-                )
-            wb.Close(SaveChanges=save)
-            self._mcp_opened_files.discard(full_name)
-
-        elif app_name == "word":
-            doc = self._find_document(name)
-            if doc is None:
-                raise FileNotFoundError(f"開いていないファイルです: {name}")
-            full_name = doc.FullName.lower()
-            if full_name not in self._mcp_opened_files:
-                raise PermissionError(
-                    f"'{name}' は MCP 経由で開いたファイルではないため閉じられません。"
-                )
+            obj.Close(SaveChanges=save)
+        else:
+            # Word / PowerPoint: Save() → Close()（引数なし）
             if save:
-                doc.Save()
-            doc.Close(SaveChanges=False)
-            self._mcp_opened_files.discard(full_name)
+                obj.Save()
+            if app_name == "word":
+                obj.Close(SaveChanges=False)
+            else:
+                obj.Close()
 
-        elif app_name == "powerpoint":
-            pres = self._find_presentation(name)
-            if pres is None:
-                raise FileNotFoundError(f"開いていないファイルです: {name}")
-            full_name = pres.FullName.lower()
-            if full_name not in self._mcp_opened_files:
-                raise PermissionError(
-                    f"'{name}' は MCP 経由で開いたファイルではないため閉じられません。"
-                )
-            if save:
-                pres.Save()
-            pres.Close()
-            self._mcp_opened_files.discard(full_name)
-
+        self._mcp_opened_files.discard(full_name)
         logger.info("AppManager: closed '%s' (saved=%s).", name, save)
         return {"closed": name, "saved": save}
 
@@ -505,29 +484,23 @@ class AppManager:
             )
         return app
 
-    def _find_workbook(self, name: str):
+    def _find_file_object(self, app_name: AppName, name: str):
+        """
+        app_name のアプリで開いているファイルオブジェクトを名前で検索して返す。
+        見つからなければ None を返す。
+        """
+        _collections: dict[AppName, Any] = {
+            "excel": self.xl_app.Workbooks if self.xl_app else None,
+            "word": self.wd_app.Documents if self.wd_app else None,
+            "powerpoint": self.ppt_app.Presentations if self.ppt_app else None,
+        }
+        collection = _collections.get(app_name)
+        if collection is None:
+            return None
         try:
-            for wb in self.xl_app.Workbooks:
-                if wb.Name.lower() == name.lower():
-                    return wb
-        except Exception:
-            pass
-        return None
-
-    def _find_document(self, name: str):
-        try:
-            for doc in self.wd_app.Documents:
-                if doc.Name.lower() == name.lower():
-                    return doc
-        except Exception:
-            pass
-        return None
-
-    def _find_presentation(self, name: str):
-        try:
-            for pres in self.ppt_app.Presentations:
-                if pres.Name.lower() == name.lower():
-                    return pres
+            for obj in collection:
+                if obj.Name.lower() == name.lower():
+                    return obj
         except Exception:
             pass
         return None
@@ -538,14 +511,7 @@ class AppManager:
         同名のファイルが開いていなければ None を返す。
         """
         try:
-            if app_name == "excel":
-                obj = self._find_workbook(name)
-            elif app_name == "word":
-                obj = self._find_document(name)
-            elif app_name == "powerpoint":
-                obj = self._find_presentation(name)
-            else:
-                return None
+            obj = self._find_file_object(app_name, name)
             if obj is not None:
                 return obj.FullName
         except Exception:
@@ -557,16 +523,17 @@ class AppManager:
         if app is None:
             return False
         try:
-            collections = []
-            if app is self.xl_app:
-                collections = list(app.Workbooks)
-            elif app is self.wd_app:
-                collections = list(app.Documents)
-            elif app is self.ppt_app:
-                collections = list(app.Presentations)
+            _collection_attrs: dict[int, Any] = {
+                id(self.xl_app): app.Workbooks,
+                id(self.wd_app): app.Documents,
+                id(self.ppt_app): app.Presentations,
+            }
+            collection = _collection_attrs.get(id(app))
+            if collection is None:
+                return False
             return any(
                 obj.FullName.lower() not in self._mcp_opened_files
-                for obj in collections
+                for obj in list(collection)
             )
         except Exception:
             return False
@@ -575,51 +542,43 @@ class AppManager:
         """MCP 経由で開いたファイルのみ上書き保存してから閉じる。"""
         if app is None:
             return
+
+        # アプリ種別ごとのコレクションと Close() 呼び出しの差異をデータで表現する
+        _app_config: dict[str, tuple[Any, bool]] = {
+            # label -> (collection, close_with_save_changes_arg)
+            # Excel は Close(SaveChanges=False) で一括制御できる
+            # Word も SaveChanges=False を渡すが事前に Save() しておく
+            # PowerPoint は Close() に引数なし
+            "Excel": (app.Workbooks, True),
+            "Word": (app.Documents, True),
+            "PowerPoint": (app.Presentations, False),
+        }
+        config = _app_config.get(label)
+        if config is None:
+            return
+        collection_obj, use_save_changes_arg = config
+
         try:
-            if label == "Excel":
-                for wb in list(app.Workbooks):
-                    try:
-                        if wb.FullName.lower() not in self._mcp_opened_files:
-                            logger.info(
-                                "AppManager: skipping '%s' (not opened via MCP).",
-                                wb.Name,
-                            )
-                            continue
-                        wb.Save()
-                        wb.Close(SaveChanges=False)
-                        logger.info("AppManager: saved and closed '%s'.", wb.Name)
-                    except Exception as e:
-                        logger.warning("AppManager: failed to close workbook: %s", e)
-            elif label == "Word":
-                for doc in list(app.Documents):
-                    try:
-                        if doc.FullName.lower() not in self._mcp_opened_files:
-                            logger.info(
-                                "AppManager: skipping '%s' (not opened via MCP).",
-                                doc.Name,
-                            )
-                            continue
-                        doc.Save()
-                        doc.Close(SaveChanges=False)
-                        logger.info("AppManager: saved and closed '%s'.", doc.Name)
-                    except Exception as e:
-                        logger.warning("AppManager: failed to close document: %s", e)
-            elif label == "PowerPoint":
-                for pres in list(app.Presentations):
-                    try:
-                        if pres.FullName.lower() not in self._mcp_opened_files:
-                            logger.info(
-                                "AppManager: skipping '%s' (not opened via MCP).",
-                                pres.Name,
-                            )
-                            continue
-                        pres.Save()
-                        pres.Close()
-                        logger.info("AppManager: saved and closed '%s'.", pres.Name)
-                    except Exception as e:
-                        logger.warning(
-                            "AppManager: failed to close presentation: %s", e
+            for obj in list(collection_obj):
+                try:
+                    if obj.FullName.lower() not in self._mcp_opened_files:
+                        logger.info(
+                            "AppManager: skipping '%s' (not opened via MCP).", obj.Name
                         )
+                        continue
+                    obj.Save()
+                    if use_save_changes_arg:
+                        obj.Close(SaveChanges=False)
+                    else:
+                        obj.Close()
+                    logger.info("AppManager: saved and closed '%s'.", obj.Name)
+                except Exception as e:
+                    logger.warning(
+                        "AppManager: failed to close %s file '%s': %s",
+                        label,
+                        getattr(obj, "Name", "?"),
+                        e,
+                    )
         except Exception as e:
             logger.warning("AppManager: failed to enumerate %s files: %s", label, e)
 

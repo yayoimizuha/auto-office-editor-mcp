@@ -150,6 +150,33 @@ def xl_to_df(range_obj) -> pd.DataFrame:
 # ------------------------------------------------------------------
 
 
+def _prepare_table_data(df: pd.DataFrame, include_header: bool) -> list[list]:
+    """
+    DataFrame をセルデータのリスト（行×列）に変換する共通前処理。
+
+    Args:
+        df: 変換対象の DataFrame
+        include_header: True の場合、列名を先頭行として追加する
+
+    Returns:
+        セルデータの2次元リスト
+
+    Raises:
+        ValueError: DataFrame が空の場合
+    """
+    if include_header:
+        data = [df.columns.tolist()] + df.fillna("").values.tolist()
+    else:
+        data = df.fillna("").values.tolist()
+
+    num_rows = len(data)
+    num_cols = len(data[0]) if data else 0
+    if num_rows == 0 or num_cols == 0:
+        raise ValueError("DataFrame が空です。")
+
+    return data
+
+
 def df_to_ppt_table(
     df: pd.DataFrame,
     slide,
@@ -176,15 +203,9 @@ def df_to_ppt_table(
         slide = ppt_app.Presentations("slide.pptx").Slides(1)
         df_to_ppt_table(df, slide)
     """
-    if include_header:
-        data = [df.columns.tolist()] + df.fillna("").values.tolist()
-    else:
-        data = df.fillna("").values.tolist()
-
+    data = _prepare_table_data(df, include_header)
     num_rows = len(data)
-    num_cols = len(data[0]) if data else 0
-    if num_rows == 0 or num_cols == 0:
-        raise ValueError("DataFrame が空です。")
+    num_cols = len(data[0])
 
     shape = slide.Shapes.AddTable(
         NumRows=num_rows,
@@ -198,9 +219,7 @@ def df_to_ppt_table(
 
     for r, row in enumerate(data):
         for c, val in enumerate(row):
-            table.Cell(r + 1, c + 1).Shape.TextFrame.TextRange.Text = (
-                str(val) if val != "" else ""
-            )
+            table.Cell(r + 1, c + 1).Shape.TextFrame.TextRange.Text = str(val)
 
     return shape
 
@@ -266,15 +285,9 @@ def df_to_wd_table(
         doc = wd_app.Documents("report.docx")
         df_to_wd_table(df, doc)
     """
-    if include_header:
-        data = [df.columns.tolist()] + df.fillna("").values.tolist()
-    else:
-        data = df.fillna("").values.tolist()
-
+    data = _prepare_table_data(df, include_header)
     num_rows = len(data)
-    num_cols = len(data[0]) if data else 0
-    if num_rows == 0 or num_cols == 0:
-        raise ValueError("DataFrame が空です。")
+    num_cols = len(data[0])
 
     insert_range = (
         range_obj
@@ -286,7 +299,7 @@ def df_to_wd_table(
 
     for r, row in enumerate(data):
         for c, val in enumerate(row):
-            table.Cell(r + 1, c + 1).Range.Text = str(val) if val != "" else ""
+            table.Cell(r + 1, c + 1).Range.Text = str(val)
 
     return table
 
