@@ -1,0 +1,11 @@
+__pycache__
+**.pyc
+
+tests/fixtures/editable/**
+
+.idea/**
+
+uv.lock
+
+.venv/**
+.idea/**
