@@ -19,7 +19,7 @@ LLM が自然言語の指示から Office ファイルを直接編集・プレ�
 | Microsoft Office | Excel / Word / PowerPoint がインストール済みであること |
 | パッケージ管理 | [uv](https://docs.astral.sh/uv/) を推奨 |
 
-## インストール
+## セットアップ
 
 ```bash
 git clone https://github.com/your-org/auto-office-editor-mcp.git
@@ -27,22 +27,55 @@ cd auto-office-editor-mcp
 uv sync
 ```
 
+`uv sync` は開発・テスト用です。
+MCP クライアントから使うときは、通常は `uvx` でこのパッケージを起動します。
+
 ## MCP クライアントへの登録
 
 `claude_desktop_config.json` などに以下を追加します。
+
+### 1. ローカル checkout をそのまま使う場合
 
 ```json
 {
   "mcpServers": {
     "auto-office-editor": {
-      "command": "uv",
+      "command": "uvx",
       "args": [
-        "--directory", "C:/path/to/auto-office-editor-mcp",
-        "run", "auto-office-editor-mcp"
+        "--from",
+        "C:/path/to/auto-office-editor-mcp",
+        "auto-office-editor-mcp"
       ]
     }
   }
 }
+```
+
+### 2. Git リポジトリ URL から直接起動する場合
+
+```json
+{
+  "mcpServers": {
+    "auto-office-editor": {
+      "command": "uvx",
+      "args": [
+        "--from",
+        "git+https://github.com/your-org/auto-office-editor-mcp.git",
+        "auto-office-editor-mcp"
+      ]
+    }
+  }
+}
+```
+
+どちらの方法でも、`uvx` は指定した配布元から一時環境を作成し、
+`pyproject.toml` の `project.scripts` に定義された
+`auto-office-editor-mcp` コマンドを実行します。
+
+手元で単体起動して確認したい場合は、次でも起動できます。
+
+```bash
+uvx --from . auto-office-editor-mcp
 ```
 
 サーバー起動時に Excel / Word / PowerPoint が自動的に起動します。
