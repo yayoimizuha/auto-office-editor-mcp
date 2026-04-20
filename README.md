@@ -81,6 +81,16 @@ uvx --from . auto-office-editor-mcp
 サーバー起動時に Excel / Word / PowerPoint が自動的に起動します。
 サーバー停止時には開いているファイルを全て保存して終了します。
 
+### ウィンドウの表示/非表示を切り替える
+
+デフォルトでは Office アプリのウィンドウを表示します。バックグラウンドで動かしたい場合は `--no-visible` を付けて起動してください。
+
+```bash
+uvx --from . auto-office-editor-mcp --no-visible
+```
+
+`--visible / --no-visible` で表示状態を切り替えられます。
+
 ## 公開ツール一覧
 
 | ツール | 説明 |

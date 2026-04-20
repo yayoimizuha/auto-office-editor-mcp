@@ -142,11 +142,12 @@ class AppManager:
         manager.shutdown()        # MCPサーバー停止時（atexit でも自動登録）
     """
 
-    def __init__(self) -> None:
+    def __init__(self, visible: bool = True) -> None:
         self.xl_app: Any = None
         self.wd_app: Any = None
         self.ppt_app: Any = None
         self._started = False
+        self._visible = visible
         # MCP 経由で開いたファイルのフルパス（小文字正規化）を追跡する
         self._mcp_opened_files: set[str] = set()
         # 専用 STA ワーカースレッド
@@ -156,10 +157,19 @@ class AppManager:
     # 起動 / 停止
     # ------------------------------------------------------------------
 
-    def start(self) -> None:
-        """STAワーカースレッドを起動し、その中で3アプリを起動する。"""
+    def start(self, visible: bool | None = None) -> None:
+        """
+        STAワーカースレッドを起動し、その中で3アプリを起動する。
+
+        Args:
+            visible: True の場合は Office アプリを表示、False なら非表示。
+                     None の場合は既存設定（コンストラクタや set_visibility）を使用。
+        """
         if self._started:
             return
+
+        if visible is not None:
+            self._visible = visible
 
         self._worker.start()
 
@@ -219,6 +229,14 @@ class AppManager:
     # ------------------------------------------------------------------
     # STA ワーカー経由の公開インターフェース
     # ------------------------------------------------------------------
+
+    def set_visibility(self, visible: bool) -> None:
+        """
+        次回 start 時に設定する Office アプリの表示状態を更新する。
+
+        start() 済みのアプリの表示状態は変わらないため、起動前に呼び出すこと。
+        """
+        self._visible = visible
 
     def run_in_sta(self, func: Callable[[], Any]) -> Any:
         """
@@ -373,7 +391,7 @@ class AppManager:
             except Exception:
                 pass
         elif app_name == "powerpoint":
-            app.Presentations.Open(str_path, WithWindow=True)
+            app.Presentations.Open(str_path, WithWindow=self._visible)
 
         # MCP 経由で開いたファイルとして記録する
         self._mcp_opened_files.add(str_path.lower())
@@ -451,8 +469,8 @@ class AppManager:
             # gencache が失敗した場合は通常の Dispatch にフォールバック
             app = win32com.client.Dispatch(_PROG_ID[app_name])
 
-        # 操作の様子が見えるように表示する
-        app.Visible = True
+        # 操作の様子が見えるように表示するかどうかを切り替え
+        app.Visible = self._visible
 
         # ダイアログは全て握りつぶす（処理がハングするのを防ぐ）
         if app_name == "excel":
