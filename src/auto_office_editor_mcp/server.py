@@ -17,9 +17,10 @@ FastMCP サーバー定義。
 
 from __future__ import annotations
 
+import argparse
 import logging
 from contextlib import asynccontextmanager
-from typing import AsyncIterator
+from typing import AsyncIterator, Sequence
 
 from fastmcp import FastMCP
 from fastmcp.utilities.types import Image
@@ -410,7 +411,20 @@ def preview_ppt_slides(
 # ------------------------------------------------------------------
 
 
-def main() -> None:
+def _parse_args(argv: Sequence[str] | None = None):
+    parser = argparse.ArgumentParser(description="Auto Office Editor MCP server")
+    parser.add_argument(
+        "--visible",
+        action=argparse.BooleanOptionalAction,
+        default=True,
+        help="Show Office application windows (use --no-visible to hide).",
+    )
+    return parser.parse_args(argv)
+
+
+def main(argv: Sequence[str] | None = None) -> None:
+    args = _parse_args(argv)
+    manager.set_visibility(bool(args.visible))
     mcp.run()
 
 
