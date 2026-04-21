@@ -34,6 +34,8 @@ MCP クライアントから使うときは、通常は `uvx` でこのパッケ
 
 `claude_desktop_config.json` などに以下を追加します。
 
+このサーバーは Office ファイルの直接編集に特化しています。VBA のプロパティ・メソッドの細かい仕様がわからない場合は、[MicrosoftDocs/mcp](https://github.com/MicrosoftDocs/mcp) を併用することで Microsoft 公式ドキュメントを検索して仕様を確認できます。
+
 ### 1. ローカル checkout をそのまま使う場合
 
 ```json
