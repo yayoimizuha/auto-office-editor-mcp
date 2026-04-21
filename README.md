@@ -78,8 +78,9 @@ MCP クライアントから使うときは、通常は `uvx` でこのパッケ
 uvx --from . auto-office-editor-mcp
 ```
 
-サーバー起動時に Excel / Word / PowerPoint が自動的に起動します。
-サーバー停止時には開いているファイルを全て保存して終了します。
+サーバー起動時は COM 用の STA ワーカーだけを起動します。
+Excel / Word / PowerPoint は `open_office_file` で対象ファイルを最初に開くときに起動します。
+サーバー停止時には起動済みアプリで開いているファイルを全て保存して終了します。
 
 ### ウィンドウの表示/非表示を切り替える
 
@@ -125,9 +126,9 @@ uvx --from . auto-office-editor-mcp --no-visible
 
 ```python
 # Office アプリオブジェクト
-xl_app   # Excel.Application
-wd_app   # Word.Application
-ppt_app  # PowerPoint.Application
+xl_app   # Excel.Application（未起動なら None）
+wd_app   # Word.Application（未起動なら None）
+ppt_app  # PowerPoint.Application（未起動なら None）
 const    # win32com.client.constants（xlUp, msoTrue 等の VBA 定数）
 
 # 標準モジュール
@@ -154,6 +155,8 @@ wd_table_to_df(table)       # Word 表 → DataFrame
 ```
 
 ### コード例
+
+`execute_office_script` は未起動アプリを自動起動しません。必要なファイルは先に `open_office_file` で開いてください。
 
 ```python
 # Excel: セルに値を書き込んで書式を設定する

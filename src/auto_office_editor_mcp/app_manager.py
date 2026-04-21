@@ -1,8 +1,9 @@
 """
 Office アプリケーション（Excel / Word / PowerPoint）のライフサイクル管理。
 
-MCPサーバー起動時に3アプリをバックグラウンドで起動・保持し、
-サーバー停止時に全アプリを安全に終了する。
+MCPサーバー起動時は COM 用の STA ワーカースレッドだけを用意し、
+Office アプリ本体は必要になった時点で個別に起動する。
+サーバー停止時は起動済みアプリだけを安全に終了する。
 ファイルの open / close もここで担う。
 
 ## STAワーカースレッドについて
@@ -134,6 +135,10 @@ class _STAWorker:
             self._request_queue.put(_STOP_SENTINEL)
             self._thread.join(timeout=30)
 
+    def is_running(self) -> bool:
+        """STA ワーカースレッドが実行中なら True を返す。"""
+        return self._thread is not None and self._thread.is_alive()
+
     def run(self, func: Callable[[], Any]) -> Any:
         """
         func を STAワーカースレッドで実行し、結果を返す。
@@ -141,6 +146,9 @@ class _STAWorker:
         func が例外を raise した場合は、そのまま呼び出し元に再 raise する。
         メインスレッドをブロックする（同期呼び出し）。
         """
+        if not self.is_running():
+            raise RuntimeError("STA ワーカースレッドが起動していません。")
+
         result_event = threading.Event()
         result_holder: list = [None, None]  # [result, exception]
 
@@ -181,7 +189,7 @@ class AppManager:
 
     使い方:
         manager = AppManager()
-        manager.start()           # MCPサーバー起動時
+        manager.start()           # MCPサーバー起動時（STA ワーカーのみ開始）
         manager.xl_app            # Excel.Application（STAスレッド内でのみ直接アクセス可）
         manager.open_file(path)   # ファイルを開く
         manager.close_file(path)  # ファイルを閉じる
@@ -205,7 +213,7 @@ class AppManager:
 
     def start(self, visible: bool | None = None) -> None:
         """
-        STAワーカースレッドを起動し、その中で3アプリを起動する。
+        STAワーカースレッドを起動する。
 
         Args:
             visible: True の場合は Office アプリを表示、False なら非表示。
@@ -220,16 +228,9 @@ class AppManager:
         self._worker.start()
         _rebuild_win32com_gen_py_cache()
 
-        def _init():
-            self.xl_app = self._launch("excel")
-            self.wd_app = self._launch("word")
-            self.ppt_app = self._launch("powerpoint")
-
-        self._worker.run(_init)
-
         self._started = True
         atexit.register(self.shutdown)
-        logger.info("AppManager: all Office apps started.")
+        logger.info("AppManager: STA worker started.")
 
     def shutdown(self, uninitialize_com: bool = True) -> None:
         """MCP 経由で開いたファイルを保存して閉じ、アプリを終了する。
@@ -296,6 +297,7 @@ class AppManager:
         executor.py や tools/*.py から COM 操作を行う際はこのメソッドを使う。
         func が例外を raise した場合は呼び出し元に再 raise する。
         """
+        self._require_started()
         return self._worker.run(func)
 
     # ------------------------------------------------------------------
@@ -319,6 +321,7 @@ class AppManager:
                 "already_open": false
             }
         """
+        self._require_started()
         return self._worker.run(lambda: self._open_file_impl(filepath))
 
     def close_file(self, filepath: str, save: bool = True) -> dict:
@@ -334,6 +337,7 @@ class AppManager:
         Returns:
             {"closed": "hoge.xlsx", "saved": True}
         """
+        self._require_started()
         return self._worker.run(lambda: self._close_file_impl(filepath, save))
 
     def get_open_files(self) -> dict:
@@ -347,6 +351,7 @@ class AppManager:
                 "powerpoint": ["slide.pptx", ...]
             }
         """
+        self._require_started()
         return self._worker.run(self._get_open_files_impl)
 
     # ------------------------------------------------------------------
@@ -360,7 +365,7 @@ class AppManager:
         if app_name is None:
             raise ValueError(f"未対応の拡張子です: {path.suffix}")
 
-        self._get_app(app_name)  # 起動確認
+        self._ensure_app(app_name)
 
         name = path.name
 
@@ -391,7 +396,7 @@ class AppManager:
             raise FileNotFoundError(f"ファイルが見つかりません: {path}")
 
         str_path = str(path)
-        app = self._get_app(app_name)
+        app = self._ensure_app(app_name)
         if app_name == "excel":
             app.Workbooks.Open(str_path)
         elif app_name == "word":
@@ -535,18 +540,34 @@ class AppManager:
         logger.info("AppManager: launched %s.", _PROG_ID[app_name])
         return app
 
+    def _require_started(self) -> None:
+        if not self._started:
+            raise RuntimeError(
+                "AppManager が起動していません。start() を呼び出してください。"
+            )
+
+    def _ensure_app(self, app_name: AppName) -> Any:
+        self._require_started()
+
+        attr_name = {
+            "excel": "xl_app",
+            "word": "wd_app",
+            "powerpoint": "ppt_app",
+        }[app_name]
+        app = getattr(self, attr_name)
+        if app is None:
+            app = self._launch(app_name)
+            setattr(self, attr_name, app)
+        return app
+
     def _get_app(self, app_name: AppName) -> Any:
+        self._require_started()
         mapping = {
             "excel": self.xl_app,
             "word": self.wd_app,
             "powerpoint": self.ppt_app,
         }
-        app = mapping[app_name]
-        if app is None:
-            raise RuntimeError(
-                f"AppManager が起動していません。start() を呼び出してください。"
-            )
-        return app
+        return mapping[app_name]
 
     def _find_file_object(self, app_name: AppName, name: str):
         """

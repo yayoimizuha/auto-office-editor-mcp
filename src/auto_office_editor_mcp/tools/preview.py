@@ -101,6 +101,8 @@ def get_word_page_image(
     """
     Word ドキュメントの指定ページを PNG バイト列に変換して返す。
 
+    前提: 対象ファイルは open_office_file で開いておくこと。
+
     Args:
         doc_name: ドキュメント名（例: "report.docx"）
         pages:    ページ番号（1始まり）。
@@ -147,6 +149,8 @@ def get_ppt_slide_image(
 ) -> list[tuple[int, bytes]]:
     """
     PowerPoint プレゼンテーションの指定スライドを PNG バイト列に変換して返す。
+
+    前提: 対象ファイルは open_office_file で開いておくこと。
 
     Args:
         pres_name: プレゼンテーション名（例: "slide.pptx"）

@@ -30,6 +30,8 @@ def get_xl_sheets_info(wb_name: str) -> str:
     """
     Excel ワークブックのシート一覧を返す。
 
+    前提: 対象ファイルは open_office_file で開いておくこと。
+
     Args:
         wb_name: ワークブック名（例: "hoge.xlsx"）
 
@@ -69,6 +71,8 @@ def get_xl_sheets_info(wb_name: str) -> str:
 def get_xl_range_info(wb_name: str, sheet_name: str, range_address: str) -> str:
     """
     Excel の指定セル範囲の情報を返す。
+
+    前提: 対象ファイルは open_office_file で開いておくこと。
 
     Args:
         wb_name: ワークブック名（例: "hoge.xlsx"）
@@ -140,6 +144,8 @@ def get_ppt_slides_info(pres_name: str) -> str:
     """
     PowerPoint プレゼンテーションのスライド一覧を返す。
 
+    前提: 対象ファイルは open_office_file で開いておくこと。
+
     Args:
         pres_name: プレゼンテーション名（例: "slide.pptx"）
 
@@ -185,6 +191,8 @@ def get_ppt_shapes_info(pres_name: str, slide_index: int) -> str:
     """
     PowerPoint スライド上の全図形の情報を返す。LLM が「どの図形を操作するか」
     を判断するための認知ツール。
+
+    前提: 対象ファイルは open_office_file で開いておくこと。
 
     Args:
         pres_name: プレゼンテーション名（例: "slide.pptx"）
@@ -269,6 +277,7 @@ def get_wd_document_info(doc_name: str) -> str:
 
     段落数・表の数・スタイル情報を含む概要を返す。
     LLM が「どこに何があるか」を把握するための認知ツール。
+    前提: 対象ファイルは open_office_file で開いておくこと。
 
     Args:
         doc_name: ドキュメント名（例: "report.docx"）

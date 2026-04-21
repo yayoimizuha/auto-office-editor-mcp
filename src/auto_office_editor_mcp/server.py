@@ -42,14 +42,14 @@ logger = logging.getLogger(__name__)
 
 
 # ------------------------------------------------------------------
-# ライフスパン：サーバー起動時に Office アプリを起動し、
-#              サーバー停止時に全アプリを終了する
+# ライフスパン：サーバー起動時に STA ワーカーを起動し、
+#              サーバー停止時に起動済みの Office アプリを終了する
 # ------------------------------------------------------------------
 
 
 @asynccontextmanager
 async def lifespan(server: FastMCP) -> AsyncIterator[None]:
-    logger.info("Starting Office apps...")
+    logger.info("Starting Office STA worker...")
     manager.start()
     try:
         yield
@@ -69,7 +69,8 @@ mcp = FastMCP(
     name="auto-office-editor",
     instructions=(
         "Win32com を使って Excel / Word / PowerPoint をバックグラウンドで操作するツール群です。\n"
-        "MCPサーバー起動時に3アプリが自動的に起動し、停止時に開いているファイルを全て保存して終了します。\n"
+        "MCPサーバー起動時は COM 用の STA ワーカーだけを起動します。\n"
+        "Excel / Word / PowerPoint は必要になった時点で起動され、停止時に開いているファイルを全て保存して終了します。\n"
         "\n"
         "## 基本的な使い方\n"
         "1. open_office_file でファイルを開く\n"
@@ -77,6 +78,8 @@ mcp = FastMCP(
         "3. execute_office_script で操作コードを実行する\n"
         "4. 必要に応じて preview_word_pages / preview_ppt_slides で結果を目視確認する\n"
         "5. close_office_file で保存して閉じる（省略時はサーバー停止時に自動保存）\n"
+        "\n"
+        "execute_office_script では、未起動のアプリは None のままです。必要なファイルは先に open_office_file で開いてください。\n"
         "\n"
         "注入済み変数・ヘルパー関数・注意事項の詳細は execute_office_script の説明を参照してください。\n"
     ),
@@ -95,15 +98,17 @@ def execute_office_script(code: str) -> str:
     Python コード（win32com を使った Office 操作）を実行する。
 
     コードは以下の変数・モジュール・関数が注入済みの環境で実行される。
+    このツールは未起動アプリを自動起動しないため、必要なファイルは先に
+    open_office_file で開いておくこと。
     コード内で print() した内容は戻り値に含まれる。
     エラー発生時は Traceback を返すので、内容を読んでコードを修正して再実行すること。
 
     ## 注入済み変数
 
     ### Office アプリオブジェクト
-    - xl_app  : Excel.Application
-    - wd_app  : Word.Application
-    - ppt_app : PowerPoint.Application
+    - xl_app  : Excel.Application（未起動なら None）
+    - wd_app  : Word.Application（未起動なら None）
+    - ppt_app : PowerPoint.Application（未起動なら None）
     - const   : win32com.client.constants（xlUp, msoTrue などの VBA 定数）
 
     ### 標準モジュール
@@ -218,7 +223,8 @@ def open_office_file(filepath: str) -> str:
     """
     Office ファイルを開く。
 
-    拡張子から自動的にアプリ（Excel / Word / PowerPoint）を判定してファイルを開く。
+    拡張子からアプリ（Excel / Word / PowerPoint）を自動判定し、
+    必要ならそのアプリを起動してからファイルを開く。
     対応拡張子: .xlsx .xlsm .xlsb .xls / .docx .doc .dotx / .pptx .ppt .potx
 
     同名ファイルの扱い:
