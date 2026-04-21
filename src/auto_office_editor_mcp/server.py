@@ -55,7 +55,10 @@ async def lifespan(server: FastMCP) -> AsyncIterator[None]:
         yield
     finally:
         logger.info("Shutting down Office apps...")
-        manager.shutdown()
+        try:
+            manager.shutdown()
+        except Exception as e:
+            logger.warning("Office app shutdown failed during server exit: %s", e)
 
 
 # ------------------------------------------------------------------
@@ -425,7 +428,10 @@ def _parse_args(argv: Sequence[str] | None = None):
 def main(argv: Sequence[str] | None = None) -> None:
     args = _parse_args(argv)
     manager.set_visibility(bool(args.visible))
-    mcp.run()
+    try:
+        mcp.run()
+    except KeyboardInterrupt:
+        logger.info("MCP server stopped by user.")
 
 
 if __name__ == "__main__":

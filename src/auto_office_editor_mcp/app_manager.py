@@ -22,6 +22,7 @@ import atexit
 import logging
 import queue
 import shutil
+import sys
 import threading
 import tempfile
 from pathlib import Path
@@ -86,6 +87,20 @@ def _rebuild_win32com_gen_py_cache() -> None:
             logger.warning(
                 "AppManager: failed to remove win32com cache %s: %s", path, e
             )
+
+    version_dir = (
+        Path(tempfile.gettempdir())
+        / "gen_py"
+        / f"{sys.version_info.major}.{sys.version_info.minor}"
+    )
+    try:
+        version_dir.mkdir(parents=True, exist_ok=True)
+    except Exception as e:
+        logger.warning(
+            "AppManager: failed to recreate win32com cache directory %s: %s",
+            version_dir,
+            e,
+        )
 
 
 class _STAWorker:
@@ -203,6 +218,7 @@ class AppManager:
             self._visible = visible
 
         self._worker.start()
+        _rebuild_win32com_gen_py_cache()
 
         def _init():
             self.xl_app = self._launch("excel")
@@ -252,8 +268,12 @@ class AppManager:
                         "AppManager: %s has user-opened files; skipping Quit().", label
                     )
 
-        self._worker.run(_do_shutdown)
-        self._worker.stop()
+        try:
+            self._worker.run(_do_shutdown)
+        except Exception as e:
+            logger.warning("AppManager: shutdown encountered an error: %s", e)
+        finally:
+            self._worker.stop()
         self._started = False
         logger.info("AppManager: shutdown complete.")
 
@@ -493,7 +513,6 @@ class AppManager:
 
     def _launch(self, app_name: AppName) -> Any:
         """アプリを起動し、表示状態にしてダイアログを無効化して返す。"""
-        _rebuild_win32com_gen_py_cache()
         app = win32com.client.gencache.EnsureDispatch(_PROG_ID[app_name])  # type: ignore[attr-defined]
 
         # 操作の様子が見えるように表示するかどうかを切り替え
@@ -588,20 +607,22 @@ class AppManager:
         if app is None:
             return
 
-        # アプリ種別ごとのコレクションと Close() 呼び出しの差異をデータで表現する
-        _app_config: dict[str, tuple[Any, bool]] = {
-            # label -> (collection, close_with_save_changes_arg)
-            # Excel は Close(SaveChanges=False) で一括制御できる
-            # Word も SaveChanges=False を渡すが事前に Save() しておく
-            # PowerPoint は Close() に引数なし
-            "Excel": (app.Workbooks, True),
-            "Word": (app.Documents, True),
-            "PowerPoint": (app.Presentations, False),
-        }
-        config = _app_config.get(label)
-        if config is None:
+        try:
+            if label == "Excel":
+                collection_obj, use_save_changes_arg = app.Workbooks, True
+            elif label == "Word":
+                collection_obj, use_save_changes_arg = app.Documents, True
+            elif label == "PowerPoint":
+                collection_obj, use_save_changes_arg = app.Presentations, False
+            else:
+                return
+        except Exception as e:
+            logger.warning(
+                "AppManager: failed to access %s collection during shutdown: %s",
+                label,
+                e,
+            )
             return
-        collection_obj, use_save_changes_arg = config
 
         try:
             for obj in list(collection_obj):
