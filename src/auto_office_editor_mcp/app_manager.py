@@ -21,7 +21,9 @@ from __future__ import annotations
 import atexit
 import logging
 import queue
+import shutil
 import threading
+import tempfile
 from pathlib import Path
 from typing import Any, Callable, Literal
 
@@ -55,6 +57,35 @@ _EXT_TO_APP: dict[str, AppName] = {
 
 # STAワーカースレッドへの停止シグナル
 _STOP_SENTINEL = object()
+
+
+def _rebuild_win32com_gen_py_cache() -> None:
+    """
+    win32com の生成キャッシュ(gen_py)を毎回作り直せるよう削除する。
+
+    起動時に毎回クリーンな状態から型ライブラリを再生成させる。
+    """
+    candidate_dirs = {
+        Path(tempfile.gettempdir()) / "gen_py",
+        Path.home() / "AppData" / "Local" / "Temp" / "gen_py",
+    }
+
+    try:
+        gen_path = getattr(win32com, "__gen_path__", None)
+        if gen_path:
+            candidate_dirs.add(Path(str(gen_path)))
+    except Exception:
+        pass
+
+    for path in candidate_dirs:
+        try:
+            if path.exists():
+                shutil.rmtree(path, ignore_errors=True)
+                logger.warning("AppManager: removed broken win32com cache: %s", path)
+        except Exception as e:
+            logger.warning(
+                "AppManager: failed to remove win32com cache %s: %s", path, e
+            )
 
 
 class _STAWorker:
@@ -444,12 +475,8 @@ class AppManager:
 
     def _launch(self, app_name: AppName) -> Any:
         """アプリを起動し、表示状態にしてダイアログを無効化して返す。"""
-        try:
-            # gencache は win32com の動的属性なので type: ignore で抑制
-            app = win32com.client.gencache.EnsureDispatch(_PROG_ID[app_name])  # type: ignore[attr-defined]
-        except Exception:
-            # gencache が失敗した場合は通常の Dispatch にフォールバック
-            app = win32com.client.Dispatch(_PROG_ID[app_name])
+        _rebuild_win32com_gen_py_cache()
+        app = win32com.client.gencache.EnsureDispatch(_PROG_ID[app_name])  # type: ignore[attr-defined]
 
         # 操作の様子が見えるように表示する
         app.Visible = True

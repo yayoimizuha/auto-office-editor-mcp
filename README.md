@@ -259,6 +259,25 @@ uv run python scripts/create_test_docx.py
 uv run python scripts/create_test_pptx.py
 ```
 
+## トラブルシューティング
+
+### `win32com.gen_py... has no attribute 'CLSIDToClassMap'` / `CLSIDToPackageMap`
+
+`pywin32` の COM 型ライブラリキャッシュ (`gen_py`) が壊れていると発生します。
+このリポジトリでは起動時に毎回 `gen_py` を削除してから再生成します。
+既存の壊れた `uvx` キャッシュ環境が残っている場合は、手動削除も有効です。
+
+PowerShell:
+
+```powershell
+Remove-Item -Recurse -Force $env:TEMP\gen_py -ErrorAction SilentlyContinue
+uv cache clean
+uvx --from git+https://github.com/yayoimizuha/auto-office-editor-mcp.git auto-office-editor-mcp
+```
+
+それでも再現する場合は、まずローカル checkout で `uv run python -m auto_office_editor_mcp.server`
+を試して、`uvx` の一時環境依存かどうかを切り分けてください。
+
 ## ライセンス
 
 MIT
