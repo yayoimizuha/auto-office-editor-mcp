@@ -34,6 +34,8 @@ MCP クライアントから使うときは、通常は `uvx` でこのパッケ
 
 `claude_desktop_config.json` などに以下を追加します。
 
+このサーバーは Office ファイルの直接編集に特化しています。Microsoft 公式ドキュメントや API 仕様の確認を伴う作業では、[MicrosoftDocs/mcp](https://github.com/MicrosoftDocs/mcp) の併用を推奨します。
+
 ### 1. ローカル checkout をそのまま使う場合
 
 ```json
