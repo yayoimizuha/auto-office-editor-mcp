@@ -22,7 +22,7 @@ LLM が自然言語の指示から Office ファイルを直接編集・プレ�
 ## セットアップ
 
 ```bash
-git clone https://github.com/your-org/auto-office-editor-mcp.git
+git clone https://github.com/yayoimizuha/auto-office-editor-mcp.git
 cd auto-office-editor-mcp
 uv sync
 ```
